@@ -12,6 +12,7 @@ spring:
       hibernate:
         # show_sql: true
         format_sql: true
+        use_sql_comments: true # 실행된 JPQL 을 보고 싶다면 사용
 
 logging.level:
   org.hibernate.SQL: debug

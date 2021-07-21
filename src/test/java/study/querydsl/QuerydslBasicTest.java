@@ -15,6 +15,7 @@ import study.querydsl.domain.Team;
 import javax.persistence.EntityManager;
 
 import static org.assertj.core.api.Assertions.*;
+import static study.querydsl.domain.QMember.*;
 
 @SpringBootTest
 @Transactional
@@ -79,21 +80,21 @@ public class QuerydslBasicTest {
 
         // "m"은 어떤 QMember 인지 구분하는 이름을 주는 것이다
         // 이번에는 예제라 정석으로 생성해보고 나중에는 `QMember.member`를 쓸 것이다.
-        QMember m = new QMember("m");
+        // QMember m = new QMember("m");
 
         // JPQL 에서는 오타가 나면, 컴파일까지 정상적으로 실행되고 런타임에 에러가 나는 반면,
         // QueryDSL 에서는 오타가 나면, 컴파일 단계에서 벌써 에러가 난다.
         // 코드 어시스턴트도 어마어마해서 SQL 문법이 정확히 기억이 안 나도 생성할 수 있다.
-        Member member = queryFactory
-                .select(m)
-                .from(m)
+        Member member1 = queryFactory
+                .select(member)
+                .from(member)
                 // 파라미터 바인딩을 안해도, 파라미터 바인딩을 자동으로 한다.
                 // 자동으로 `PreparedStatement`의 파라미터 바인딩 방식을 사용한다.
                 // 그럼으로 인해 성능상에서도 이득이 있다.
-                .where(m.username.eq("member1"))
+                .where(member.username.eq("member1"))
                 .fetchOne();
 
-        System.out.println("member = " + member);
-        assertThat(member1.getUsername()).isEqualTo("member1");
+        System.out.println("member = " + member1);
+        assertThat(this.member1.getUsername()).isEqualTo("member1");
     }
 }
