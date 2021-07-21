@@ -23,6 +23,7 @@ repositories {
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'com.github.gavlyukovskiy:p6spy-spring-boot-starter:1.5.8'
 	// querydsl 추가
 	implementation 'com.querydsl:querydsl-jpa'
 
@@ -39,6 +40,8 @@ test {
 
 // querydsl 추가 시작
 // $buildDir 밑에 있어서 .gitignore 처리 따로 안 해줘도 됨
+// 아래 내용을 채워넣으면, 플러그인에 작성한 `id 'com.ewerk.gradle.plugins.querydsl' version '1.0.10'`와 맞물린다.
+// 아래 내용은 gradle의 버전도 많이 타므로 가끔 귀찮아진다.
 def querydslDir = "$buildDir/generated/querydsl"
 
 querydsl {
@@ -57,4 +60,4 @@ configurations {
 compileQuerydsl {
 	options.annotationProcessorPath = configurations.querydsl
 }
-// querydsl 추가 끝
+// querydsl 추가
