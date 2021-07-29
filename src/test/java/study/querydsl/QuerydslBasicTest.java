@@ -14,6 +14,8 @@ import study.querydsl.domain.Team;
 
 import javax.persistence.EntityManager;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.*;
 import static study.querydsl.domain.QMember.*;
 
@@ -96,5 +98,55 @@ public class QuerydslBasicTest {
 
         System.out.println("member = " + member1);
         assertThat(this.member1.getUsername()).isEqualTo("member1");
+    }
+
+    @Test
+    @DisplayName("And Or 검색")
+    public void search() {
+        Member member1 = queryFactory
+                .selectFrom(member)
+                .where(member.username.eq("member1").and(member.age.eq(10)))
+                .fetchOne();
+
+        assertThat(member1.getUsername()).isEqualTo("member1");
+    }
+
+    @Test
+    @DisplayName("검색조건 활용 테스트")
+    public void searchCondition() {
+        // 쿼리에서의 조건을 표현 가능
+        member.username.eq("member1"); // =
+        member.username.ne("member1"); // !=
+        member.username.eq("member1").not(); // !=
+
+        member.username.isNotNull(); // isNotNull
+
+        member.age.in(10, 20); // in
+        member.age.notIn(10, 20); // not in
+        member.age.between(10, 30); // between 10 to 30
+
+        member.age.goe(30); // greater or equal (age >= 30)
+        member.age.gt(30); // greater (age > 30)
+        member.age.loe(30); // less or equal (age <= 30)
+        member.age.lt(30); // less than (age < 30)
+
+        member.username.like("member%"); // like
+        member.username.contains("member"); // like '%member%'
+        member.username.startsWith("member"); // like 'member%'
+    }
+
+    @Test
+    @DisplayName("like 테스트")
+    public void like() {
+        List<Member> members = queryFactory.selectFrom(member)
+                .where(
+                        member.username.like("%ember%"),
+                        member.age.goe(30)
+                )
+                .fetch();
+
+        for (Member foundMember : members) {
+            System.out.println("foundMember = " + foundMember);
+        }
     }
 }
