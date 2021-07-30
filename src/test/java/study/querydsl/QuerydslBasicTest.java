@@ -1,5 +1,6 @@
 package study.querydsl;
 
+import com.querydsl.core.QueryResults;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,12 +18,14 @@ import javax.persistence.EntityManager;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
-import static study.querydsl.domain.QMember.*;
 
 @SpringBootTest
 @Transactional
 public class QuerydslBasicTest {
-    @Autowired EntityManager em;
+    private static QMember qMember = QMember.member;
+
+    @Autowired
+    EntityManager em;
     JPAQueryFactory queryFactory;
 
     Team teamA;
@@ -88,12 +91,12 @@ public class QuerydslBasicTest {
         // QueryDSL 에서는 오타가 나면, 컴파일 단계에서 벌써 에러가 난다.
         // 코드 어시스턴트도 어마어마해서 SQL 문법이 정확히 기억이 안 나도 생성할 수 있다.
         Member member1 = queryFactory
-                .select(member)
-                .from(member)
+                .select(qMember)
+                .from(qMember)
                 // 파라미터 바인딩을 안해도, 파라미터 바인딩을 자동으로 한다.
                 // 자동으로 `PreparedStatement`의 파라미터 바인딩 방식을 사용한다.
                 // 그럼으로 인해 성능상에서도 이득이 있다.
-                .where(member.username.eq("member1"))
+                .where(qMember.username.eq("member1"))
                 .fetchOne();
 
         System.out.println("member = " + member1);
@@ -104,8 +107,8 @@ public class QuerydslBasicTest {
     @DisplayName("And Or 검색")
     public void search() {
         Member member1 = queryFactory
-                .selectFrom(member)
-                .where(member.username.eq("member1").and(member.age.eq(10)))
+                .selectFrom(qMember)
+                .where(qMember.username.eq("member1").and(qMember.age.eq(10)))
                 .fetchOne();
 
         assertThat(member1.getUsername()).isEqualTo("member1");
@@ -115,33 +118,33 @@ public class QuerydslBasicTest {
     @DisplayName("검색조건 활용 테스트")
     public void searchCondition() {
         // 쿼리에서의 조건을 표현 가능
-        member.username.eq("member1"); // =
-        member.username.ne("member1"); // !=
-        member.username.eq("member1").not(); // !=
+       qMember.username.eq("member1"); // =
+       qMember.username.ne("member1"); // !=
+       qMember.username.eq("member1").not(); // !=
 
-        member.username.isNotNull(); // isNotNull
+       qMember.username.isNotNull(); // isNotNull
 
-        member.age.in(10, 20); // in
-        member.age.notIn(10, 20); // not in
-        member.age.between(10, 30); // between 10 to 30
+       qMember.age.in(10, 20); // in
+       qMember.age.notIn(10, 20); // not in
+       qMember.age.between(10, 30); // between 10 to 30
 
-        member.age.goe(30); // greater or equal (age >= 30)
-        member.age.gt(30); // greater (age > 30)
-        member.age.loe(30); // less or equal (age <= 30)
-        member.age.lt(30); // less than (age < 30)
+       qMember.age.goe(30); // greater or equal (age >= 30)
+       qMember.age.gt(30); // greater (age > 30)
+       qMember.age.loe(30); // less or equal (age <= 30)
+       qMember.age.lt(30); // less than (age < 30)
 
-        member.username.like("member%"); // like
-        member.username.contains("member"); // like '%member%'
-        member.username.startsWith("member"); // like 'member%'
+       qMember.username.like("member%"); // like
+       qMember.username.contains("member"); // like '%member%'
+       qMember.username.startsWith("member"); // like 'member%'
     }
 
     @Test
     @DisplayName("like 테스트")
     public void like() {
-        List<Member> members = queryFactory.selectFrom(member)
+        List<Member> members = queryFactory.selectFrom(qMember)
                 .where(
-                        member.username.like("%ember%"),
-                        member.age.goe(30)
+                        qMember.username.like("%ember%"),
+                        qMember.age.goe(30)
                 )
                 .fetch();
 
@@ -149,4 +152,26 @@ public class QuerydslBasicTest {
             System.out.println("foundMember = " + foundMember);
         }
     }
+
+    @Test
+    @DisplayName("결과를 가져오는 종류 ")
+    public void resultFetchTest() {
+        // 일반 리스트
+        List<Member> fetch = queryFactory.selectFrom(qMember).fetch();
+
+        // 결과가 1개일 때 -> 없으면 null, 1개 이상이면 `com.querydsl.core.NonUniqueResultException
+        Member fetchOne = queryFactory.selectFrom(qMember).fetchOne();
+
+        // `limit(1).fetchOne()`과 동일
+        Member fetchFirst = queryFactory.selectFrom(qMember).fetchFirst();
+
+        // 페이징 정보 포함한 결과 반환
+        // count 를 알기 위해 쿼리가 1번 나가고, 전체 데이터를 조회하기 위해 1번 나감 -> 총 2번의 쿼리 발생
+        // 성능 때문에 간혹 `total count`를 다른 방식으로 가져와야 할 때가 있는데, 그 때는 쿼리 두번을 따로 날려야 한다.
+        QueryResults<Member> fetchResults = queryFactory.selectFrom(qMember).fetchResults();
+
+        // 카운트만 조회
+        long fetchCount = queryFactory.selectFrom(qMember).fetchCount();
+    }
+
 }
