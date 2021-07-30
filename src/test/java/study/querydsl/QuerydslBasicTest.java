@@ -174,4 +174,31 @@ public class QuerydslBasicTest {
         long fetchCount = queryFactory.selectFrom(qMember).fetchCount();
     }
 
+    /**
+     * 회원 정렬 순서
+     * 1. 회원 나이 내림차순 (desc)
+     * 2. 회원 나이 오름차순 (asc)
+     * 단, 2에서 회원 이름이 없으면 마지막에 출력 (nulls last)
+     */
+    @Test
+    @DisplayName("정렬 순서 테스트")
+    public void orderBy() {
+        em.persist(new Member(null, 100));
+        em.persist(new Member("member5", 100));
+        em.persist(new Member("member6", 100));
+
+        List<Member> members = queryFactory.selectFrom(qMember)
+                .where(qMember.age.eq(100))
+                // null이 먼저 오도록 `nullsFirst`도 있다.
+                .orderBy(qMember.age.desc(), qMember.username.asc().nullsLast())
+                .fetch();
+
+        Member member5 = members.get(0);
+        Member member6 = members.get(1);
+        Member memberNull = members.get(2);
+
+        assertThat(member5.getUsername()).isEqualTo("member5");
+        assertThat(member6.getUsername()).isEqualTo("member6");
+        assertThat(memberNull.getUsername()).isNull();
+    }
 }
