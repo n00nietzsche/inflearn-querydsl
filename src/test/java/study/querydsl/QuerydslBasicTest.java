@@ -1,6 +1,7 @@
 package study.querydsl;
 
 import com.querydsl.core.QueryResults;
+import com.querydsl.core.Tuple;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -8,9 +9,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 import study.querydsl.domain.Member;
 import study.querydsl.domain.QMember;
+import study.querydsl.domain.QTeam;
 import study.querydsl.domain.Team;
 
 import javax.persistence.EntityManager;
@@ -21,8 +24,10 @@ import static org.assertj.core.api.Assertions.*;
 
 @SpringBootTest
 @Transactional
+@Rollback(value = false)
 public class QuerydslBasicTest {
     private static QMember qMember = QMember.member;
+    private static QTeam qTeam = QTeam.team;
 
     @Autowired
     EntityManager em;
@@ -231,5 +236,70 @@ public class QuerydslBasicTest {
         assertThat(memberQueryResults.getLimit()).isEqualTo(2);
         assertThat(memberQueryResults.getOffset()).isEqualTo(1);
         assertThat(memberQueryResults.getResults().size()).isEqualTo(2);
+    }
+
+    @Test
+    public void aggregation() {
+        List<Tuple> tuples = queryFactory
+                .select(
+                        qMember.count(),
+                        qMember.age.sum(),
+                        qMember.age.avg(),
+                        qMember.age.max(),
+                        qMember.age.min()
+                )
+                .from(qMember)
+                .fetch();
+
+        Tuple tuple = tuples.get(0);
+        assertThat(tuple.get(qMember.count())).isEqualTo(4);
+        assertThat(tuple.get(qMember.age.sum())).isEqualTo(100);
+        assertThat(tuple.get(qMember.age.avg())).isEqualTo(25);
+        assertThat(tuple.get(qMember.age.max())).isEqualTo(40);
+        assertThat(tuple.get(qMember.age.min())).isEqualTo(10);
+
+        // 실무에서는 튜플을 사용하기보다는 DTO로 직접 뽑아오는 방식을 많이 쓴다.
+    }
+
+    @Test
+    @DisplayName("팀 이름과 각팀의 평균 연령 구하기")
+    public void group() throws Exception {
+        List<Tuple> tuples = queryFactory
+                .select(
+                        qTeam.name,
+                        qMember.age.avg()
+                )
+                .from(qMember)
+                .join(qMember.team, qTeam)
+                .groupBy(qTeam.name)
+                .fetch();
+
+        Tuple teamA = tuples.get(0);
+        Tuple teamB = tuples.get(1);
+
+        assertThat(teamA.get(qTeam.name)).isEqualTo("teamA");
+        assertThat(teamA.get(qMember.age.avg())).isEqualTo(15);
+
+        assertThat(teamB.get(qTeam.name)).isEqualTo("teamB");
+        assertThat(teamB.get(qMember.age.avg())).isEqualTo(35);
+    }
+
+    @Test
+    @DisplayName("팀 멤버 평균연령이 20살 이상인 팀 이름 구하기")
+    public void having() throws Exception {
+
+        // 외래키의 주인으로만 조인 가능
+        // 외래키 주인으로 조인 안하면, `... is not a root path` 에러 발생
+        List<Team> teams = queryFactory
+                .select(qTeam)
+                .from(qMember)
+                .join(qMember.team, qTeam)
+                .groupBy(qTeam.name)
+                .having(qMember.age.avg().goe(20))
+                .fetch();
+
+        for (Team team : teams) {
+            System.out.println("team = " + team);
+        }
     }
 }
