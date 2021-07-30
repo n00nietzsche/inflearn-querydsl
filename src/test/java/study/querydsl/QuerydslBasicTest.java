@@ -201,4 +201,35 @@ public class QuerydslBasicTest {
         assertThat(member6.getUsername()).isEqualTo("member6");
         assertThat(memberNull.getUsername()).isNull();
     }
+
+    @Test
+    @DisplayName("페이징 테스트 1")
+    public void paging1() {
+        List<Member> members = queryFactory
+                .selectFrom(qMember)
+                .orderBy(qMember.username.desc())
+                .offset(1) // 0부터 시작이어서 1이면 1개를 스킵한다는 뜻
+                .limit(2)
+                .fetch();
+
+        assertThat(members.size()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("페이징 테스트 2")
+    public void paging2() {
+        // 단, `count` 쿼리는 성능 개선의 여지가 많아서 따로 작성하는 경우가 많다.
+
+        QueryResults<Member> memberQueryResults = queryFactory
+                .selectFrom(qMember)
+                .orderBy(qMember.username.desc())
+                .offset(1) // 0부터 시작이어서 1이면 1개를 스킵한다는 뜻
+                .limit(2)
+                .fetchResults();
+
+        assertThat(memberQueryResults.getTotal()).isEqualTo(4);
+        assertThat(memberQueryResults.getLimit()).isEqualTo(2);
+        assertThat(memberQueryResults.getOffset()).isEqualTo(1);
+        assertThat(memberQueryResults.getResults().size()).isEqualTo(2);
+    }
 }
