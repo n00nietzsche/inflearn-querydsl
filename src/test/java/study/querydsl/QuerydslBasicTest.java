@@ -352,4 +352,48 @@ public class QuerydslBasicTest {
                 .extracting("username")
                 .containsExactly("teamA", "teamB");
     }
+
+    @Test
+    @DisplayName("회원과 팀을 조인하면서, 팀 이름이 teamA인 팀만 조인, 회원은 모두 조회")
+    public void joinOnFiltering() throws Exception {
+        /*
+        * JPQL: select m, t from Member m left join m.team t on t.name = 'teamA'
+        * */
+
+        List<Tuple> tuples = queryFactory.select(qMember, qTeam)
+                .from(qMember)
+                .leftJoin(qMember.team, qTeam)
+                // `inner join`의 경우, 굳이 `on`만 쓸 필요 없이 `where`로 해도 깔끔하다.
+                .on(qTeam.name.eq("teamA"))
+                .fetch();
+
+        for (Tuple tuple : tuples) {
+            System.out.println("tuple = " + tuple);
+        }
+    }
+
+    @Test
+    @DisplayName("연관관계가 없는 엔티티를 외부 조인, 회원의 이름이 팀 이름과 같은 대상 외부 조인")
+    public void joinOnNoRelation() {
+        // 세타 조인은 `from`에 두개의 테이블 박아놓고,
+        // `where`에서 조인시키는 것
+        em.persist(new Member("teamA", 10));
+        em.persist(new Member("teamB", 20));
+        em.persist(new Member("teamC", 30));
+
+        List<Tuple> tuples = queryFactory
+                .select(qMember, qTeam)
+                .from(qMember)
+                // 세타조인에서는 문법이 다름.
+                // 엔티티의 어떤 필드를 조인할 것이냐가 아니라, 그냥 조인할 엔티티 이름을 바로 박아버림.
+                // 그냥 엔티티 연관관계 필드 대신 조인할 엔티티 이름을 박으면, 외래키 id로 조인 안함. on에 있는 조건만 사용.
+                // `.on` 은 `join` 할 데이터를 필터링할 때 쓰임.
+                .leftJoin(qTeam)
+                .on(qMember.username.eq(qTeam.name))
+                .fetch();
+
+        for (Tuple tuple : tuples) {
+            System.out.println("tuple = " + tuple);
+        }
+    }
 }
