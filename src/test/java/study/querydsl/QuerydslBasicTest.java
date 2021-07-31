@@ -285,11 +285,8 @@ public class QuerydslBasicTest {
     }
 
     @Test
-    @DisplayName("팀 멤버 평균연령이 20살 이상인 팀 이름 구하기")
+    @DisplayName("(멤버 관점) 팀 멤버 평균연령이 20살 이상인 팀 이름 구하기")
     public void having() throws Exception {
-
-        // 외래키의 주인으로만 조인 가능
-        // 외래키 주인으로 조인 안하면, `... is not a root path` 에러 발생
         List<Team> teams = queryFactory
                 .select(qTeam)
                 .from(qMember)
@@ -301,5 +298,58 @@ public class QuerydslBasicTest {
         for (Team team : teams) {
             System.out.println("team = " + team);
         }
+    }
+
+    @Test
+    @DisplayName("(팀 관점) 팀 멤버 평균연령이 20살 이상인 팀 이름 구하기")
+    public void having2() throws Exception {
+        List<Team> teams = queryFactory
+                .select(qTeam)
+                .from(qTeam)
+                .join(qTeam.members, qMember)
+                .groupBy(qTeam.name)
+                .having(qMember.age.avg().goe(20))
+                .fetch();
+
+        for (Team team : teams) {
+            System.out.println("team = " + team);
+        }
+    }
+
+    @Test
+    @DisplayName("팀 A에 소속된 모든 회원을 찾아라")
+    public void join() {
+        List<Member> teamAMembers = queryFactory
+                .selectFrom(qMember)
+                .join(qMember.team, qTeam) // left, right join 전부 가능하다.
+                .where(qTeam.name.eq("teamA"))
+                .fetch();
+
+        assertThat(teamAMembers)
+                .extracting("username")
+                .containsExactly("member1", "member2");
+
+        // 실행시켜보면 결국 객체의 참조가 나오는 JPQL 쿼리가 나간다.
+        // QueryDSL은 결국 JPQL 쿼리 빌더의 역할이다.
+    }
+
+    @Test
+    @DisplayName("세타 조인 (연관관계가 없는 조인), 회원 이름이 팀 이름과 같은 회원을 조회해보자.")
+    public void thetaJoin() {
+        // 세타 조인은 `from`에 두개의 테이블 박아놓고,
+        // `where`에서 조인시키는 것
+        em.persist(new Member("teamA", 10));
+        em.persist(new Member("teamB", 20));
+        em.persist(new Member("teamC", 30));
+
+        List<Member> members = queryFactory
+                .select(qMember)
+                .from(qMember, qTeam)
+                .where(qMember.username.eq(qTeam.name))
+                .fetch();
+
+        assertThat(members)
+                .extracting("username")
+                .containsExactly("teamA", "teamB");
     }
 }
