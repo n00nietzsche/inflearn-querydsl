@@ -2,8 +2,8 @@ package study.querydsl;
 
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
+import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,9 +17,12 @@ import study.querydsl.domain.QTeam;
 import study.querydsl.domain.Team;
 
 import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.PersistenceUnit;
 
 import java.util.List;
 
+import static com.querydsl.jpa.JPAExpressions.*;
 import static org.assertj.core.api.Assertions.*;
 
 @SpringBootTest
@@ -28,10 +31,11 @@ import static org.assertj.core.api.Assertions.*;
 public class QuerydslBasicTest {
     private static QMember qMember = QMember.member;
     private static QTeam qTeam = QTeam.team;
+    QMember qMemberSub = new QMember("memberSub");
 
-    @Autowired
-    EntityManager em;
+    @Autowired EntityManager em;
     JPAQueryFactory queryFactory;
+    @PersistenceUnit EntityManagerFactory emf;
 
     Team teamA;
     Team teamB;
@@ -396,4 +400,128 @@ public class QuerydslBasicTest {
             System.out.println("tuple = " + tuple);
         }
     }
+
+    @Test
+    @DisplayName("페치 조인 없을 때")
+    public void withoutFetchJoin() {
+        // 영속성 컨텍스트 캐시에 데이터가 남아있으면 select 문을 제대로 볼 수 없음
+        em.flush();
+        em.clear();
+
+        // `LAZY` 로 세팅되어 있기 때문에, `team`을 안가져오면 자동으로 `member`만 조회한다.
+        Member member = queryFactory
+                .selectFrom(qMember)
+                .join(qMember.team, qTeam)
+                .where(qMember.username.eq("member1"))
+                .fetchOne();
+
+        boolean loaded = emf.getPersistenceUnitUtil().isLoaded(member.getTeam());
+        assertThat(loaded).as("페치 조인 미적용").isFalse();
+    }
+
+    @Test
+    @DisplayName("페치 조인 적용했을 때")
+    public void withFetchJoin() {
+        // 영속성 컨텍스트 캐시에 데이터가 남아있으면 select 문을 제대로 볼 수 없음
+        em.flush();
+        em.clear();
+
+        // `LAZY` 로 세팅되어 있기 때문에, `team`을 안가져오면 자동으로 `member`만 조회한다.
+        Member member = queryFactory
+                .selectFrom(qMember)
+                .join(qMember.team, qTeam).fetchJoin() // 끝에 `.fetchJoin()`만 추가해주면 된다.
+                .where(qMember.username.eq("member1"))
+                .fetchOne();
+
+        boolean loaded = emf.getPersistenceUnitUtil().isLoaded(member.getTeam());
+        // `fetch join` 사용 안하고,
+        // 그냥 `join`으로 하면 `false`가 나온다.
+        // 단, `team` 조회시에도 쿼리가 또 나간다.
+        assertThat(loaded).as("페치 조인 적용").isTrue();
+    }
+
+    @Test
+    @DisplayName("나이가 가장 많은 회원을 조회")
+    public void subQueryMaxAge() {
+
+        // alias 가 중복되면 안되기 때문에,
+        // 서브쿼리의 경우 `QMember`를 새로 만들어주어야 한다.
+        QMember memberSub = new QMember("memberSub");
+
+        List<Member> members = queryFactory
+                .selectFrom(qMember)
+                .where(qMember.age.eq(
+                        select(memberSub.age.max())
+                                .from(memberSub)
+                )).fetch();
+
+        // 결과가 1개고, 나이가 40이다.
+        assertThat(members)
+                .hasSize(1)
+                .extracting("age")
+                .containsExactly(40);
+    }
+
+    @Test
+    @DisplayName("나이가 평균 이상인 회원을 조회")
+    public void subQueryGOEAverageAge() {
+
+        // alias 가 중복되면 안되기 때문에,
+        // 서브쿼리의 경우 `QMember`를 새로 만들어주어야 한다.
+        QMember memberSub = new QMember("memberSub");
+
+        List<Member> members = queryFactory
+                .selectFrom(qMember)
+                .where(qMember.age.goe(
+                        select(memberSub.age.avg())
+                                .from(memberSub)
+                )).fetch();
+
+        // 결과가 2개고, 나이가 30, 40이다.
+        assertThat(members)
+                .hasSize(2)
+                .extracting("age")
+                .containsExactly(30, 40);
+    }
+
+    @Test
+    @DisplayName("In")
+    public void subQueryIn() {
+
+        // alias 가 중복되면 안되기 때문에,
+        // 서브쿼리의 경우 `QMember`를 새로 만들어주어야 한다.
+        List<Member> members = queryFactory
+                .selectFrom(qMember)
+                .where(qMember.age.in(
+                        select(qMemberSub.age)
+                                .from(qMemberSub)
+                                .where(qMemberSub.age.gt(10))
+                )).fetch();
+
+        // 결과가 2개고, 나이가 30, 40이다.
+        assertThat(members)
+                .hasSize(3)
+                .extracting("age")
+                .containsExactly(20, 30, 40);
+    }
+
+
+    @Test
+    public void selectSubQuery() {
+        List<Tuple> tuples = queryFactory
+                .select(qMember.username,
+                        /*JPAExpressions*/select(qMemberSub.age.avg()).from(qMemberSub))
+                .from(qMember)
+                .fetch();
+
+        for (Tuple tuple : tuples) {
+            System.out.println("tuple = " + tuple);
+        }
+    }
+
+    // from 절에 사용하는 서브 쿼리는 좋지 않은 경우가 많다.
+    // from 절 내부에 from 절이 들어가고 그 내부에 from 절이 들어가는 경우도 있다.
+    // 위와 같은 쿼리는 지양하고, DB는 순수 데이터를 가져오는 책임만 가지는 것이 좋다.
+    // 예쁘게 formatting 하고 이런저런 연산을 하는 것은 DB 로직에서 하지 않는 것이 좋다.
+    // `Layer` 를 잘 구분하여 설계하자.
 }
