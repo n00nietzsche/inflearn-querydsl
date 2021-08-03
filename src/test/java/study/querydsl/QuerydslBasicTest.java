@@ -2,6 +2,7 @@ package study.querydsl;
 
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
+import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import org.junit.jupiter.api.BeforeEach;
@@ -524,4 +525,37 @@ public class QuerydslBasicTest {
     // 위와 같은 쿼리는 지양하고, DB는 순수 데이터를 가져오는 책임만 가지는 것이 좋다.
     // 예쁘게 formatting 하고 이런저런 연산을 하는 것은 DB 로직에서 하지 않는 것이 좋다.
     // `Layer` 를 잘 구분하여 설계하자.
+
+    @Test
+    @DisplayName("Select에 간단한 조건의 Case문 넣기")
+    public void basicCase() {
+        List<String> list = queryFactory
+                .select(qMember.age
+                        .when(10).then("열살")
+                        .when(20).then("스무살")
+                        .otherwise("기타"))
+                .from(qMember)
+                .fetch();
+
+        System.out.println("list = " + list);
+    }
+
+    // DB에서 CASE문을 제공하긴 하지만, 어쩔 수 없는 경우가 아니면 사용하지 않는 것이 좋다.
+    // 처리에 관련된 레이어가 꼬여버린다.
+    // 추후에 깔끔하지 않은 앱이 완성될 확률이 높아진다.
+    // 데이터를 가공하는 곳은 되도록이면 자바 애플리케이션 내부가 좋을 것이다.
+    @Test
+    @DisplayName("복잡한 조건의 Case문")
+    public void complexCase() {
+        List<String> list = queryFactory
+                .select(new CaseBuilder()
+                        .when(qMember.age.between(0, 20)).then("0~20살")
+                        .when(qMember.age.between(21, 30)).then("21살~30살")
+                        .otherwise("기타")) // otherwise가 있어야함
+                .from(qMember)
+                .fetch();
+
+        System.out.println("list = " + list);
+    }
+
 }
