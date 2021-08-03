@@ -3,6 +3,7 @@ package study.querydsl;
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import org.junit.jupiter.api.BeforeEach;
@@ -558,4 +559,22 @@ public class QuerydslBasicTest {
         System.out.println("list = " + list);
     }
 
+    @Test
+    @DisplayName("orderBy와 Case 같이 사용하기")
+    public void orderByCase() {
+        NumberExpression<Integer> rankPath = new CaseBuilder()
+                .when(qMember.age.between(0, 20)).then(2)
+                .when(qMember.age.between(21, 30)).then(1)
+                .otherwise(3);
+
+        List<Tuple> list = queryFactory
+                .select(qMember.username,
+                        qMember.age,
+                        rankPath)
+                .from(qMember)
+                .orderBy(rankPath.desc())
+                .fetch();
+
+        System.out.println("list = " + list);
+    }
 }
