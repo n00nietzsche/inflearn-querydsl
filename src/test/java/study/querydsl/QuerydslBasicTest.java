@@ -3,6 +3,7 @@ package study.querydsl;
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
@@ -576,5 +577,71 @@ public class QuerydslBasicTest {
                 .fetch();
 
         System.out.println("list = " + list);
+    }
+
+    @Test
+    @DisplayName("상수 더하기")
+    public void constant() {
+        List<Tuple> tuples = queryFactory
+                .select(qMember.username, Expressions.constant("A"))
+                .from(qMember)
+                .fetch();
+
+        // 결과를 보면 JPQL 쿼리는
+        // select member1.username from Member member1
+        // 위와 같이 상수를 넣어주는 부분이 없는데, 결과에서만 상수가 나온다.
+        System.out.println("tuples = " + tuples);
+    }
+
+    @Test
+    @DisplayName("문자 더하기")
+    public void concat() {
+        List<String> strings = queryFactory
+                .select(qMember.username
+                        .concat("_")
+                        .concat(qMember.age.stringValue())) // 타입이 다르다. age는 숫자라서 `.stringValue()`가 필요
+                .from(qMember)
+                .fetch();
+
+        System.out.println("strings = " + strings);
+    }
+
+    @Test
+    @DisplayName("프로젝션 대상이 하나")
+    public void projection1() {
+        List<String> usernames = queryFactory
+                .select(qMember.username)
+                .from(qMember)
+                .fetch();
+
+        System.out.println("usernames = " + usernames);
+
+        List<Integer> ages = queryFactory
+                .select(qMember.age)
+                .from(qMember)
+                .fetch();
+
+        System.out.println("ages = " + ages);
+    }
+
+    @Test
+    @DisplayName("프로젝션 대상이 둘 이상")
+    public void projectionMoreThan2() {
+        // `Tuple`은 `com.querydsl.core` 패키지에 속해있다.
+        // `Tuple`을 비즈니스 로직 등에 사용하는 것은 좋지 않다.
+        // `QueryDSL`에 강하게 결합되어 있는 라이브러리를 사용하는 것은 설계상 좋지 않다.
+        // `Repository`나 `DAO`와 같은 곳에서만 사용하는 것이 좋다.
+
+        List<Tuple> tuples = queryFactory
+                .select(qMember.username, qMember.age)
+                .from(qMember)
+                .fetch();
+
+        for (Tuple tuple : tuples) {
+            String username = tuple.get(qMember.username);
+            Integer age = tuple.get(qMember.age);
+            System.out.println("username = " + username);
+            System.out.println("age = " + age);
+        }
     }
 }
