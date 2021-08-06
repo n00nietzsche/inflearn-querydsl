@@ -2,6 +2,8 @@ package study.querydsl;
 
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
+import com.querydsl.core.types.ExpressionUtils;
+import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
@@ -18,6 +20,8 @@ import study.querydsl.domain.Member;
 import study.querydsl.domain.QMember;
 import study.querydsl.domain.QTeam;
 import study.querydsl.domain.Team;
+import study.querydsl.dto.MemberDto;
+import study.querydsl.dto.UserDto;
 
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
@@ -644,4 +648,85 @@ public class QuerydslBasicTest {
             System.out.println("age = " + age);
         }
     }
+
+    @Test
+    @DisplayName("JPQL을 이용해 DTO로 데이터를 가져오기")
+    public void findDtoByJPQL() {
+        List<MemberDto> resultList = em.createQuery("select " +
+                        "new study.querydsl.dto.MemberDto(m.username, m.age) " +
+                        "from Member m", MemberDto.class)
+                .getResultList();
+
+        System.out.println("resultList = " + resultList);
+    }
+
+    @Test
+    @DisplayName("QueryDSL로 DTO 반환하기 - Setter 이용")
+    public void findDtoBySetter() {
+        // 스프링에서 XML로 빈 만들 때처럼
+        // 빈 생성자가 있어야 함
+        List<MemberDto> memberDtos = queryFactory
+                .select(Projections.bean
+                        (MemberDto.class, qMember.username, qMember.age))
+                .from(qMember)
+                .fetch();
+
+        System.out.println("memberDtos = " + memberDtos);
+    }
+
+    @Test
+    @DisplayName("QueryDSL로 DTO 반환하기 - Field 이용")
+    public void findDtoByField() {
+        List<MemberDto> memberDtos = queryFactory
+                .select(Projections.fields(MemberDto.class, qMember.username, qMember.age))
+                .from(qMember)
+                .fetch();
+
+        System.out.println("memberDtos = " + memberDtos);
+    }
+
+    @Test
+    @DisplayName("QueryDSL로 DTO 반환하기 - Constructor 이용")
+    public void findDtoByConstructor() {
+        List<MemberDto> memberDtos = queryFactory
+                .select(Projections.constructor(MemberDto.class, qMember.username, qMember.age))
+                .from(qMember)
+                .fetch();
+
+        System.out.println("memberDtos = " + memberDtos);
+    }
+
+    @Test
+    @DisplayName("QueryDSL로 DTO 반환하기 - Field 이용 / UserDto")
+    public void findDtoByFieldUserDto() {
+        // 필드명이 안맞아도 `.fields()`를 사용한 뒤에
+        // `.as()`를 추가하여 값을 넣어줄 수 있다.
+
+        List<UserDto> userDtos = queryFactory
+                .select(Projections.fields(
+                        UserDto.class,
+                        //qMember.username.as("name"),
+                        ExpressionUtils.as(qMember.username, "name"),
+                        ExpressionUtils.as(JPAExpressions.select(qMemberSub.age.max()).from(qMemberSub), "age")))
+                .from(qMember)
+                .fetch();
+
+        System.out.println("userDtos = " + userDtos);
+    }
+
+    @Test
+    @DisplayName("QueryDSL로 DTO 반환하기 - 생성자 이용 / UserDto")
+    public void findDtoByConstructorUserDto() {
+        List<UserDto> userDtos = queryFactory
+                .select(Projections.constructor(
+                        UserDto.class,
+                        ExpressionUtils.as(qMember.username, "name"),
+                        ExpressionUtils.as(JPAExpressions.select(qMemberSub.age.max()).from(qMemberSub), "age")))
+                .from(qMember)
+                .fetch();
+
+        System.out.println("userDtos = " + userDtos);
+    }
+
+
 }
