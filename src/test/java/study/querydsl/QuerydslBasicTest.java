@@ -21,6 +21,7 @@ import study.querydsl.domain.QMember;
 import study.querydsl.domain.QTeam;
 import study.querydsl.domain.Team;
 import study.querydsl.dto.MemberDto;
+import study.querydsl.dto.QMemberDto;
 import study.querydsl.dto.UserDto;
 
 import javax.persistence.EntityManager;
@@ -689,7 +690,7 @@ public class QuerydslBasicTest {
     @DisplayName("QueryDSL로 DTO 반환하기 - Constructor 이용")
     public void findDtoByConstructor() {
         List<MemberDto> memberDtos = queryFactory
-                .select(Projections.constructor(MemberDto.class, qMember.username, qMember.age))
+                .select(Projections.constructor(MemberDto.class, qMember.username, qMember.age, qMember.id))
                 .from(qMember)
                 .fetch();
 
@@ -721,12 +722,33 @@ public class QuerydslBasicTest {
                 .select(Projections.constructor(
                         UserDto.class,
                         ExpressionUtils.as(qMember.username, "name"),
-                        ExpressionUtils.as(JPAExpressions.select(qMemberSub.age.max()).from(qMemberSub), "age")))
+                        ExpressionUtils.as(JPAExpressions.select(qMemberSub.age.max()).from(qMemberSub), "age"))
+                )
                 .from(qMember)
                 .fetch();
 
         System.out.println("userDtos = " + userDtos);
     }
 
+    @Test
+    @DisplayName("`@QueryProjection`을 이용한 `DTO` 반환")
+    public void findDtoByQueryProjection() {
+        // 기존에 Projections.constructor() 로 만드는 방식은
+        // 파라미터가 잘못 들어가도 런타임 전까지는 알 수 없고,
+        // 런타임에 로드가 되다가 에러가 나게 된다.
+        // 반면에, new QMemberDto()를 이용한 방법은 문법 오류를 먼저 내준다.
+        // 그래서 오류를 찾기에 더 편리하다.
+        // new QMemberDto()는 실제로 MemberDto()의 생성자를 실행한다.
 
+        // 이 방법의 단점은 q파일을 생성해야 하는 것과
+        // 아키텍처적으로 MemberDto가 QueryDSL에 의존한다는 것이다.
+        // 좋은 설계 원칙에 위배될 수 있다.
+        // DTO가 흘러다니는 모든 곳에 QueryDSL 의존성이 추가될 수 있다.
+        List<MemberDto> memberDtos = queryFactory
+                .select(new QMemberDto(qMember.username, qMember.age))
+                .from(qMember)
+                .fetch();
+
+        System.out.println("memberDtos = " + memberDtos);
+    }
 }

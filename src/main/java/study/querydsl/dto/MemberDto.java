@@ -1,20 +1,22 @@
 package study.querydsl.dto;
 
+import com.querydsl.core.annotations.QueryProjection;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 public class MemberDto {
-    /**
-     * 무언가 최적화해서 가져오고 싶거나
-     * 컨트롤러를 통해 엔티티 데이터를 내려야 할 때 매개체로 `DTO`를 쓴다.
-     * 이 경우에는 `Member`에 있는 정보 중
-     * `username`과 `age`만 가져오고 싶은 경우라고 가정해보자.
-     */
-
     private String username;
     private int age;
+
+    @QueryProjection
+    // 애노테이션을 적기만 하면 된다.
+    // 적은 후에 `gradle` `task`에서 `compile querydsl`을 실행하자.
+    // 그러면 q파일로 만들어준다.
+    public MemberDto(String username, int age) {
+        this.username = username;
+        this.age = age;
+    }
 }
