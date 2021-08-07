@@ -1,9 +1,12 @@
 package study.querydsl;
 
+import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.ExpressionUtils;
+import com.querydsl.core.types.Predicate;
 import com.querydsl.core.types.Projections;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
@@ -750,5 +753,84 @@ public class QuerydslBasicTest {
                 .fetch();
 
         System.out.println("memberDtos = " + memberDtos);
+    }
+
+    @Test
+    @DisplayName("동적 쿼리를 BooleanBuilder로 해결하기")
+    public void dynamicQueryBooleanBuilder() {
+        // null 이면 조건이 안들어가고, null 이 아니면 조건이 들어가는 방식이 되어야 함
+        String usernameParam = null;
+        Integer ageParam = 10;
+
+        List<Member> result = searchMember1(usernameParam, ageParam);
+        assertThat(result.size()).isEqualTo(1);
+    }
+
+    private List<Member> searchMember1(String usernameCond, Integer ageCond) {
+
+        // 필수 값에 대해서 초기값을 넣어줄 수도 있다.
+        BooleanBuilder builder = new BooleanBuilder();
+
+        if(usernameCond != null) {
+            builder.and(qMember.username.eq(usernameCond));
+        }
+
+        if(ageCond != null) {
+            builder.and(qMember.age.eq(ageCond));
+        }
+
+        return queryFactory
+                .selectFrom(qMember)
+                .where(builder)
+                .fetch();
+    }
+
+    @Test
+    @DisplayName("동적 쿼리를 Where 다중 파라미터를 사용해서 해결하기")
+    public void dynamicQueryWhereMultipleParameters() {
+        String usernameParam = null;
+        Integer ageParam = 10;
+
+        List<Member> result = searchMember2(usernameParam, ageParam);
+        assertThat(result.size()).isEqualTo(1);
+    }
+
+    private List<Member> searchMember2(String usernameCond, Integer ageCond) {
+
+        return queryFactory
+                .selectFrom(qMember)
+                // `where` 의 인자로 `null`이 오면 무시당하는 특성을 이용해서 메소드를 생성하는 것
+                // .where(usernameEq(usernameCond), null(무시))
+                .where(allEq(usernameCond, ageCond))
+                .fetch();
+    }
+
+    private BooleanExpression usernameEq(String usernameCond) {
+        if(usernameCond == null) {
+            return null;
+        }
+
+        return qMember.username.eq(usernameCond);
+    }
+
+    // BooleanExpression은 결국 Predicate를 상속하여 만드는 것이기 때문에
+    // BooleanExpression 반환해도 무관
+    private BooleanExpression ageEq(Integer ageCond) {
+        if(ageCond == null) {
+            return null;
+        }
+
+        return qMember.age.eq(ageCond);
+    }
+
+    // 이벤트가 있을 때,
+    // 광고 상태가 `isValid` 이어야 하고, 광고 날짜가 안(`IN`)에 들어있어야 한다. 등의 복잡한 조건이 여러개 들어갈 수 있다.
+    // 이런 상황에서 아래와 같이 composition을 이용하면,
+    // `isServicable()`이라는 메소드를 만들어 해결할 수 있다.
+    // 이런 복잡한 조건에 대한 재사용이 가능하다는 것은 큰 장점이다.
+    // 자바 코드로서 코드가 의미를 명확히 나타내며 깔끔해진다.
+
+    private BooleanBuilder allEq(String usernameCond, Integer ageCond) {
+        return new BooleanBuilder().and(usernameEq(usernameCond)).and(ageEq(ageCond));
     }
 }
